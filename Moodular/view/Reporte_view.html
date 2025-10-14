@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CityCare</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""></script>
+
+    <style>
+        :root {
+            --background: 210 17% 98%; --foreground: 210 11% 15%; --card: 0 0% 100%;
+            --card-foreground: 210 11% 15%; --primary: 211 100% 50%; --primary-foreground: 0 0% 100%;
+            --muted-foreground: 210 9% 55%; --border: 210 14% 89%; --input: 210 14% 89%; --radius: 1rem;
+        }
+        body { background-color: hsl(var(--background)); color: hsl(var(--foreground)); font-family: 'PT Sans', sans-serif; }
+        .font-headline { font-family: 'Poppins', sans-serif; }
+        .card { background-color: hsl(var(--card)); color: hsl(var(--card-foreground)); border-radius: var(--radius); border: 1px solid hsl(var(--border)); box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); }
+        .btn-primary { background-color: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+        .btn-primary:hover { background-color: hsl(var(--primary) / 0.9); }
+        .text-primary { color: hsl(var(--primary)); }
+        .text-muted-foreground { color: hsl(var(--muted-foreground)); }
+        .input-field { border: 1px solid hsl(var(--input)); background-color: hsl(var(--background)); border-radius: 0.5rem; }
+        .input-field:focus { outline: 2px solid hsl(var(--primary)); outline-offset: 2px; }
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=PT+Sans:wght@400;700&display=swap');
+    </style>
+</head>
+<body class="antialiased">
+
+    <header class="border-b sticky top-0 bg-white/95 backdrop-blur-sm z-20">
+      <div class="container mx-auto px-4 h-16 flex items-center justify-between">
+        <a href="#" class="flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 text-primary"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>
+          <h1 class="font-headline text-2xl font-bold text-primary">CityCare</h1>
+        </a>
+      </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8 md:py-12 flex-grow w-full">
+        <section class="text-center mb-12">
+            <h1 class="font-headline text-4xl md:text-5xl font-bold tracking-tight">Mejora Tu Ciudad, Un Reporte a la Vez.</h1>
+            <p class="mt-4 max-w-3xl mx-auto text-lg text-muted-foreground">CityCare te permite reportar problemas urbanos como baches y grafitis, de forma rápida. ¿Ves un problema? Repórtalo en segundos y contribuye a una mejor comunidad.</p>
+        </section>
+
+        <div class="grid lg:grid-cols-5 gap-8 items-start">
+            <div class="lg:col-span-3 space-y-8">
+                <div class="card">
+                    <div class="p-6"><h2 class="font-headline text-2xl font-semibold">1. Selecciona la Ubicación</h2><p class="text-sm text-muted-foreground">Haz clic en el mapa para señalar el incidente, o usa tu ubicación actual.</p></div>
+                    <div class="px-6 pb-6 space-y-4">
+                        <div id="map" class="h-96 w-full rounded-2xl overflow-hidden relative shadow-lg border"></div>
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <input type="text" id="address-input" placeholder="La dirección aparecerá aquí" readonly class="input-field bg-gray-100 flex-grow px-3 py-2 text-sm" aria-label="Dirección seleccionada" />
+                            <button type="button" id="locate-button" class="btn-primary w-full sm:w-auto flex-shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" x2="12" y1="2" y2="4"/><line x1="12" x2="12" y1="20" y2="22"/><line x1="2" x2="4" y1="12" y2="12"/><line x1="20" x2="22" y1="12" y2="12"/></svg>
+                                Usar Mi Ubicación
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 space-y-8">
+                <div class="card">
+                    <div class="p-6"><h2 class="font-headline text-2xl font-semibold">2. Enviar Reporte</h2><p class="text-sm text-muted-foreground">Proporciona detalles sobre el incidente.</p></div>
+                    <div class="p-6 pt-0">
+                        <form id="report-form" class="space-y-6" novalidate>
+                            <div>
+                                <label for="description" class="block text-sm font-medium mb-1">Descripción</label>
+                                <textarea id="description" name="description" rows="5" placeholder="Ej: 'Bache grande en la esquina de Calle Principal...'" class="input-field w-full px-3 py-2" required minlength="10"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Subir Foto (Opcional)</label>
+                                <label for="image-upload-input" class="relative flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 text-center text-muted-foreground transition hover:border-blue-500 hover:bg-blue-500/5">
+                                    <div id="image-preview-container" class="hidden"><img id="image-preview" src="" alt="Vista previa" class="max-h-32 rounded-lg object-contain" /></div>
+                                    <div id="upload-placeholder"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-8 w-8 mx-auto"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg><span class="font-medium">Haz clic para subir una foto</span></div>
+                                </label>
+                                <input id="image-upload-input" type="file" class="sr-only" accept="image/*" />
+                            </div>
+                            <div>
+                                <label for="incidentType" class="block text-sm font-medium mb-1">Tipo de Incidente</label>
+                                <select id="incidentType" name="incidentType" class="input-field w-full px-3 py-2" required>
+                                    <option value="" disabled selected>Selecciona un tipo</option>
+                                    <option>Bache</option><option>Grafiti</option><option>Poste de luz roto</option>
+                                    <option>Fuga de agua</option><option>Árbol caído</option><option>Otro</option>
+                                </select>
+                            </div>
+                            <button type="submit" id="submit-button" class="btn-primary w-full text-lg py-3 rounded-md font-semibold">Enviar Reporte</button>
+                            <p id="location-error" class="text-sm text-center text-red-600 hidden">Por favor, selecciona una ubicación en el mapa.</p>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="py-6 border-t mt-12"><div class="container mx-auto px-4 text-center text-muted-foreground text-sm">&copy; 2025 CityCare. Haciendo ciudades mejores, juntos.</div></footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // --- Lógica del Mapa ---
+            const mapElement = document.getElementById('map');
+            const addressInput = document.getElementById('address-input');
+            const locateButton = document.getElementById('locate-button');
+            let map, marker, selectedLocation = null;
+
+            function initMap() {
+                const initialCoords = [20.659698, -103.349609];
+                map = L.map(mapElement).setView(initialCoords, 12);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                }).addTo(map);
+                map.on('click', e => updateLocation(e.latlng.lat, e.latlng.lng));
+            }
+
+            function updateLocation(lat, lng) {
+                selectedLocation = { lat, lng };
+                if (marker) { marker.setLatLng([lat, lng]); } else { marker = L.marker([lat, lng]).addTo(map); }
+                map.setView([lat, lng], 16);
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+                    .then(res => res.json()).then(data => { addressInput.value = data.display_name || 'Dirección no encontrada'; })
+                    .catch(() => { addressInput.value = 'Error al obtener la dirección'; });
+            }
+            
+            locateButton.addEventListener('click', function() {
+                if ('geolocation' in navigator) {
+                    this.disabled = true; this.textContent = 'Localizando...';
+                    navigator.geolocation.getCurrentPosition(position => {
+                        updateLocation(position.coords.latitude, position.coords.longitude);
+                        this.disabled = false; this.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" x2="12" y1="2" y2="4"/><line x1="12" x2="12" y1="20" y2="22"/><line x1="2" x2="4" y1="12" y2="12"/><line x1="20" x2="22" y1="12" y2="12"/></svg> Usar Mi Ubicación';
+                    }, () => {
+                        alert('No se pudo obtener tu ubicación.'); this.disabled = false; this.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" x2="12" y1="2" y2="4"/><line x1="12" x2="12" y1="20" y2="22"/><line x1="2" x2="4" y1="12" y2="12"/><line x1="20" x2="22" y1="12" y2="12"/></svg> Usar Mi Ubicación';
+                    });
+                } else { alert('La geolocalización no es compatible con tu navegador.'); }
+            });
+
+            // --- Lógica del Formulario ---
+            const form = document.getElementById('report-form');
+            const descriptionInput = document.getElementById('description');
+            const imageUploadInput = document.getElementById('image-upload-input');
+            const imagePreviewContainer = document.getElementById('image-preview-container');
+            const imagePreview = document.getElementById('image-preview');
+            const uploadPlaceholder = document.getElementById('upload-placeholder');
+            const submitButton = document.getElementById('submit-button');
+            const locationError = document.getElementById('location-error');
+            
+            imageUploadInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        imagePreview.src = event.target.result;
+                        imagePreviewContainer.classList.remove('hidden');
+                        uploadPlaceholder.classList.add('hidden');
+                    }
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                let isValid = true;
+                
+                if (!selectedLocation) {
+                    locationError.classList.remove('hidden');
+                    isValid = false;
+                } else {
+                    locationError.classList.add('hidden');
+                }
+
+                if (!form.checkValidity()) {
+                    form.reportValidity();
+                    isValid = false;
+                }
+                
+                if (!isValid) return;
+
+                submitButton.disabled = true;
+                submitButton.textContent = 'Enviando...';
+
+                const formData = new FormData();
+                formData.append('description', descriptionInput.value);
+                formData.append('incidentType', document.getElementById('incidentType').value);
+                formData.append('address', addressInput.value || '');
+                formData.append('latitude', selectedLocation.lat);
+                formData.append('longitude', selectedLocation.lng);
+                if (imageUploadInput.files[0]) {
+                    formData.append('incidentImage', imageUploadInput.files[0]);
+                }
+
+                try {
+                    const response = await fetch('http://localhost:3000/api/reports', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        alert('¡Reporte enviado exitosamente!');
+                        form.reset();
+                        imagePreview.src = '';
+                        imagePreviewContainer.classList.add('hidden');
+                        uploadPlaceholder.classList.remove('hidden');
+                        addressInput.value = '';
+                        if (marker) { marker.remove(); marker = null; }
+                        selectedLocation = null;
+                        map.setView([20.659698, -103.349609], 12);
+                    } else {
+                        alert(`Error: ${result.message || 'No se pudo enviar el reporte.'}`);
+                    }
+                } catch (error) {
+                    console.error('Error de conexión:', error);
+                    alert('No se pudo conectar con el servidor. Revisa tu conexión a internet.');
+                } finally {
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Enviar Reporte';
+                }
+            });
+            
+            initMap();
+        });
+    </script>
+
+</body>
+</html>

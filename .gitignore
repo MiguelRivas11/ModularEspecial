@@ -1,0 +1,6 @@
+# Archivos de credenciales y certificados
+.env
+ca.pem
+
+# Dependencias de Node.js (dentro de la carpeta apis)
+Moodular/apis/node_modules

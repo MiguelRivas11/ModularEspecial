@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "Moodular/apis/Server.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "Moodular/view/Reporte_view.html",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/Moodular/apis/Server.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/Moodular/view/Reporte_view.html"
+    }
+  ]
+}
