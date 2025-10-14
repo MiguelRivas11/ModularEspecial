@@ -10,13 +10,24 @@ require('dotenv').config();
 
 const { Pool } = require('pg');
 
-const pool = new Pool({
+const poolConfig = {
     connectionString: process.env.DATABASE_URL,
     ssl: {
         rejectUnauthorized: true,
-        ca: fs.readFileSync(path.join(__dirname, 'ca.pem')).toString(),
     }
-});
+};
+
+// Esta es la lógica clave:
+// Si detecta la variable de Vercel, la usa.
+if (process.env.AIVEN_CA_CERT) {
+    poolConfig.ssl.ca = process.env.AIVEN_CA_CERT;
+} 
+// Si no, busca el archivo local en tu PC.
+else {
+    poolConfig.ssl.ca = fs.readFileSync(path.join(__dirname, 'ca.pem')).toString();
+}
+
+const pool = new Pool(poolConfig);
 
 const createTable = async () => {
     const createTableQuery = `
