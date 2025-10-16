@@ -1,34 +1,37 @@
-
 // Importar librerías
 const express = require('express');
 const multer = require('multer');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const sharp = require('sharp');
+// const sharp = require('sharp'); // ⚠️ NOTA: comentado porque el manejo de imágenes se desactiva temporalmente
 require('dotenv').config();
 
 const { Pool } = require('pg');
 
+// ======================================================
+// 🔧 MODIFICADO: Configuración del pool para Aiven y Vercel
+// ======================================================
 const poolConfig = {
     connectionString: process.env.DATABASE_URL,
     ssl: {
-        rejectUnauthorized: false,
-    }
+        rejectUnauthorized: false, // 🔧 MODIFICADO: evita error "self-signed certificate in certificate chain"
+    },
 };
 
-// Esta es la lógica clave:
-// Si detecta la variable de Vercel, la usa.
+// ⚠️ NOTA: en Vercel no puedes leer archivos locales, así que el certificado debe ir como variable de entorno
 if (process.env.AIVEN_CA_CERT) {
     poolConfig.ssl.ca = process.env.AIVEN_CA_CERT;
-} 
-// Si no, busca el archivo local en tu PC.
-else {
+} else if (fs.existsSync(path.join(__dirname, 'ca.pem'))) {
+    // Para entorno local
     poolConfig.ssl.ca = fs.readFileSync(path.join(__dirname, 'ca.pem')).toString();
 }
 
 const pool = new Pool(poolConfig);
 
+// ======================================================
+// Creación de tabla (se mantiene igual)
+// ======================================================
 const createTable = async () => {
     const createTableQuery = `
         CREATE TABLE IF NOT EXISTS reports (
@@ -49,26 +52,40 @@ const createTable = async () => {
     }
 };
 
+// ======================================================
 // Configuración de la App
+// ======================================================
 const app = express();
 const PORT = 3000;
 
 // Middlewares
-app.use(cors()); // Esta única línea maneja CORS para todas las solicitudes, incluidas las de verificación
+app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); 
+// ⚠️ NOTA: desactivado porque en Vercel no hay sistema de archivos persistente
 
-// Configuración de Multer
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+// ======================================================
+// ⚠️ BLOQUE COMENTADO: Configuración de Multer y Sharp
+// En Vercel no se pueden guardar archivos localmente.
+// Si más adelante se usa Cloudinary u otro servicio, se puede reactivar.
+// ======================================================
 
-// Endpoint para recibir reportes
-app.post('/api/reports', upload.single('incidentImage'), async (req, res) => {
+// const storage = multer.memoryStorage();
+// const upload = multer({ storage: storage });
+
+// ======================================================
+// Endpoint principal para recibir reportes
+// ======================================================
+
+// 🔧 MODIFICADO: Eliminado multer temporalmente, solo procesa datos JSON
+app.post('/api/reports', async (req, res) => {
     console.log('📩 Reporte recibido en el servidor.');
 
     const { description, incidentType, address, latitude, longitude } = req.body;
     let imageUrl = null;
 
+    // ⚠️ NOTA: bloque de procesamiento de imágenes desactivado temporalmente
+    /*
     if (req.file) {
         try {
             const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -86,6 +103,7 @@ app.post('/api/reports', upload.single('incidentImage'), async (req, res) => {
             console.error('❌ Error procesando la imagen:', error);
         }
     }
+    */
 
     const sql = `
         INSERT INTO reports (description, incident_type, address, latitude, longitude, image_url)
@@ -118,17 +136,25 @@ app.post('/api/reports', upload.single('incidentImage'), async (req, res) => {
     }
 });
 
-// Iniciar el servidor
-app.listen(PORT, () => {
-    if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
-    
-    pool.query('SELECT NOW()', (err, res) => {
-        if (err) {
-            console.error("❌ Error al conectar con la base de datos de Aiven:", err);
-        } else {
-            console.log("✅ Conectado a la base de datos de Aiven:", res.rows[0].now);
-            createTable();
-        }
+// ======================================================
+// Servidor: modo local y compatibilidad con Vercel
+// ======================================================
+if (!process.env.VERCEL) {
+    // 🔧 MODIFICADO: Solo iniciar servidor local si no estamos en Vercel
+    app.listen(PORT, () => {
+        if (!fs.existsSync('uploads')) fs.mkdirSync('uploads', { recursive: true });
+
+        pool.query('SELECT NOW()', (err, res) => {
+            if (err) {
+                console.error("❌ Error al conectar con la base de datos de Aiven:", err);
+            } else {
+                console.log("✅ Conectado a la base de datos de Aiven:", res.rows[0].now);
+                createTable();
+            }
+        });
+        console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
     });
-    console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
-});
+} else {
+    // 🔧 MODIFICADO: Exportar la app para Vercel
+    module.exports = app;
+}
